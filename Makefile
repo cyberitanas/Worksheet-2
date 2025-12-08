@@ -19,7 +19,12 @@ GRUB_DIR = $(BOOT_DIR)/grub
 
 # Files
 LOADER_OBJ = $(BUILD_DIR)/loader.o
-KMAIN_OBJ = $(BUILD_DIR)/kmain.o
+KMAIN_OBJ  = $(BUILD_DIR)/kmain.o
+IO_OBJ     = $(BUILD_DIR)/io.o
+FB_OBJ     = $(BUILD_DIR)/framebuffer.o
+
+OBJECTS = $(LOADER_OBJ) $(IO_OBJ) $(KMAIN_OBJ) $(FB_OBJ)
+
 KERNEL_ELF = kernel.elf
 OS_ISO = os.iso
 
@@ -38,12 +43,20 @@ $(BOOT_DIR):
 $(LOADER_OBJ): source/loader.asm | $(BUILD_DIR)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
-# Compile C files
+# Assemble io.asm
+$(IO_OBJ): source/io.asm | $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
+# Compile framebuffer.c
+$(FB_OBJ): drivers/framebuffer.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
+# Compile kmain.c
 $(KMAIN_OBJ): source/kmain.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
-# Link kernel (now includes both loader.o and kmain.o)
-$(KERNEL_ELF): $(LOADER_OBJ) $(KMAIN_OBJ)
+# Link kernel (now includes loader.o, io.o, kmain.o, framebuffer.o)
+$(KERNEL_ELF): $(OBJECTS)
 	$(LD) $(LDFLAGS) $^ -o $@
 
 # Create ISO image
