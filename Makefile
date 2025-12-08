@@ -1,4 +1,4 @@
-is this makefile good for the task? : # Makefile for Tiny OS
+# Makefile for Tiny OS
 
 # Compiler and tools
 ASM = nasm
@@ -19,6 +19,7 @@ GRUB_DIR = $(BOOT_DIR)/grub
 
 # Files
 LOADER_OBJ = $(BUILD_DIR)/loader.o
+KMAIN_OBJ = $(BUILD_DIR)/kmain.o
 KERNEL_ELF = kernel.elf
 OS_ISO = os.iso
 
@@ -27,36 +28,44 @@ all: $(OS_ISO)
 
 # Create build directory
 $(BUILD_DIR):
-    mkdir -p $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)
+
+# Create ISO directory structure
+$(BOOT_DIR):
+	mkdir -p $(GRUB_DIR)
 
 # Assemble loader.asm
 $(LOADER_OBJ): source/loader.asm | $(BUILD_DIR)
-    $(ASM) $(ASMFLAGS) $< -o $@
+	$(ASM) $(ASMFLAGS) $< -o $@
 
-# Link kernel
-$(KERNEL_ELF): $(LOADER_OBJ)
-    $(LD) $(LDFLAGS) $^ -o $@
-    cp $(KERNEL_ELF) $(BOOT_DIR)/
+# Compile C files
+$(KMAIN_OBJ): source/kmain.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
+# Link kernel (now includes both loader.o and kmain.o)
+$(KERNEL_ELF): $(LOADER_OBJ) $(KMAIN_OBJ)
+	$(LD) $(LDFLAGS) $^ -o $@
 
 # Create ISO image
-$(OS_ISO): $(KERNEL_ELF)
-    $(GENISOIMAGE) -R \
-        -b boot/grub/stage2_eltorito \
-        -no-emul-boot \
-        -boot-load-size 4 \
-        -A os \
-        -input-charset utf8 \
-        -quiet \
-        -boot-info-table \
-        -o $@ \
-        $(ISO_DIR)
+$(OS_ISO): $(KERNEL_ELF) | $(BOOT_DIR)
+	cp $(KERNEL_ELF) $(BOOT_DIR)/
+	$(GENISOIMAGE) -R \
+		-b boot/grub/stage2_eltorito \
+		-no-emul-boot \
+		-boot-load-size 4 \
+		-A os \
+		-input-charset utf8 \
+		-quiet \
+		-boot-info-table \
+		-o $@ \
+		$(ISO_DIR)
 
 # Run in QEMU
 run: $(OS_ISO)
-    qemu-system-i386 -nographic -boot d -cdrom $(OS_ISO) -m 32 -d cpu -D logQ.txt
+	qemu-system-i386 -nographic -boot d -cdrom $(OS_ISO) -m 32 -d cpu -D logQ.txt
 
 # Clean build artifacts
 clean:
-    rm -rf $(BUILD_DIR) $(KERNEL_ELF) $(OS_ISO) logQ.txt $(BOOT_DIR)/kernel.elf
+	rm -rf $(BUILD_DIR) $(KERNEL_ELF) $(OS_ISO) logQ.txt $(BOOT_DIR)/kernel.elf
 
 .PHONY: all run clean
