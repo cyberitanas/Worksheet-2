@@ -1,5 +1,7 @@
 #include "../drivers/framebuffer.h"
 #include "../drivers/keyboard.h"
+#include "../source/idt.h"
+#include "../source/pic.h"
 
 // Added function
 int sum_of_three(int a, int b, int c) {
@@ -10,7 +12,16 @@ void kmain(void* mbd, unsigned int magic)
 {
     (void)mbd;
     (void)magic;
-    
+
+    /* ============================================================
+       1. INITIALIZE INTERRUPTS
+       ============================================================ */
+    idt_install();   // installs IDT entries + loads IDT (lidt)
+    pic_init();      // remaps PIC + unmasks IRQ1
+    asm volatile("sti");  // ENABLES INTERRUPTS
+
+    /* ============================================================ */
+
     // Enable cursor (underline style)
     fb_enable_cursor(0, 15);
     
@@ -49,9 +60,12 @@ void kmain(void* mbd, unsigned int magic)
     fb_write_int(sum_of_three(5, 3, 2));
     fb_write("\n");
 
-    fb_write("\nKeyboard test (polling):\n");
+    fb_write("\nKeyboard test (interrupt driven):\n");
     fb_write("Type something:\n> ");
 
+    /* ============================================================
+       2. MAIN LOOP — interrupt-driven keyboard, no polling needed
+       ============================================================ */
     while (1)
     {
         char c = keyboard_getchar();

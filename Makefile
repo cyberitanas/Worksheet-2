@@ -23,8 +23,12 @@ KMAIN_OBJ  = $(BUILD_DIR)/kmain.o
 IO_OBJ     = $(BUILD_DIR)/io.o
 FB_OBJ     = $(BUILD_DIR)/framebuffer.o
 KBD_OBJ    = $(BUILD_DIR)/keyboard.o
+IDT_OBJ    = $(BUILD_DIR)/idt.o
+PIC_OBJ    = $(BUILD_DIR)/pic.o
+INT_OBJ    = $(BUILD_DIR)/interrupts.o
 
-OBJECTS = $(LOADER_OBJ) $(IO_OBJ) $(KMAIN_OBJ) $(FB_OBJ) $(KBD_OBJ)
+OBJECTS = $(LOADER_OBJ) $(IO_OBJ) $(KMAIN_OBJ) \
+          $(FB_OBJ) $(KBD_OBJ) $(IDT_OBJ) $(PIC_OBJ) $(INT_OBJ)
 
 KERNEL_ELF = kernel.elf
 OS_ISO = os.iso
@@ -48,12 +52,24 @@ $(LOADER_OBJ): source/loader.asm | $(BUILD_DIR)
 $(IO_OBJ): source/io.asm | $(BUILD_DIR)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
+# Assemble interrupts.asm
+$(INT_OBJ): source/interrupts.asm | $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
 # Compile framebuffer.c
 $(FB_OBJ): drivers/framebuffer.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
 # Compile keyboard.c
 $(KBD_OBJ): drivers/keyboard.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
+# Compile idt.c
+$(IDT_OBJ): source/idt.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
+# Compile pic.c
+$(PIC_OBJ): source/pic.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
 # Compile kmain.c
@@ -78,7 +94,6 @@ $(OS_ISO): $(KERNEL_ELF) | $(BOOT_DIR)
 		-o $@ \
 		$(ISO_DIR)
 
-
 # Run in QEMU
 run: $(OS_ISO)
 	qemu-system-i386 \
@@ -90,7 +105,6 @@ run: $(OS_ISO)
 		-m 32 \
 		-d cpu \
 		-D logQ.txt
-
 
 # Clean build artifacts
 clean:
