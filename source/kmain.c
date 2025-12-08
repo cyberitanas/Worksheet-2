@@ -3,69 +3,66 @@
 #include "../source/idt.h"
 #include "../source/pic.h"
 
-// Added function
+/* Simple test function */
 int sum_of_three(int a, int b, int c) {
     return a + b + c;
 }
 
-void kmain(void* mbd, unsigned int magic) 
+void kmain(void* mbd, unsigned int magic)
 {
     (void)mbd;
     (void)magic;
 
-    /* ============================================================
-       1. INITIALIZE INTERRUPTS
-       ============================================================ */
-    idt_install();   // installs IDT entries + loads IDT (lidt)
-    pic_init();      // remaps PIC + unmasks IRQ1
-    asm volatile("sti");  // ENABLES INTERRUPTS
+    /* ===================== INTERRUPTS ===================== */
+    idt_install();           // Load IDT and install handlers
+    pic_init();              // Remap PIC and unmask IRQ1 (keyboard)
+    asm volatile("sti");     // Enable interrupts
 
-    /* ============================================================ */
-
-    // Enable cursor (underline style)
+    /* ===================== FRAMEBUFFER SETUP ===================== */
     fb_enable_cursor(0, 15);
-    
-    // Clear screen
+    fb_set_color(FB_WHITE, FB_BLACK);
     fb_clear();
-    
-    // Test basic writing
-    fb_write("Welcome to Tiny OS!\n");
-    fb_write("===================\n\n");
-    
-    // Test colors
+
+    /* ===================== UI HEADER ===================== */
+    fb_set_color(FB_CYAN, FB_BLACK);
+    fb_draw_box(0, 0, FB_WIDTH, 3);
+    fb_write_at(2, 1, "Welcome to Tiny OS!");
+    fb_set_cursor_pos(0, 4);
+
+    /* ===================== COLOR TESTS ===================== */
     fb_set_color(FB_GREEN, FB_BLACK);
     fb_write("This is green text\n");
-    
+
     fb_set_color(FB_RED, FB_BLACK);
     fb_write("This is red text\n");
-    
+
     fb_set_color(FB_CYAN, FB_BLUE);
     fb_write("Cyan on blue!\n\n");
-    
-    // Reset to default
-    fb_set_color(FB_WHITE, FB_BLACK);
-    
-    // Test numbers
+
+    fb_reset_color();
+
+    /* ===================== NUMBER TESTS ===================== */
     fb_write("Testing numbers: ");
     fb_write_int(12345);
     fb_write("\n");
-    
+
     fb_write("Hex value: ");
     fb_write_hex(0xDEADBEEF);
     fb_write("\n\n");
-    
-    // Test functions
-    fb_write("\nMath tests:\n");
+
+    /* ===================== MATH TEST ===================== */
+    fb_write("Math tests:\n");
     fb_write("5 + 3 + 2 = ");
     fb_write_int(sum_of_three(5, 3, 2));
-    fb_write("\n");
+    fb_write("\n\n");
 
-    fb_write("\nKeyboard test (interrupt driven):\n");
+    /* ===================== KEYBOARD INPUT ===================== */
+    fb_set_color(FB_YELLOW, FB_BLACK);
+    fb_write("Keyboard test (interrupt driven):\n");
     fb_write("Type something:\n> ");
+    fb_reset_color();
 
-    /* ============================================================
-       2. MAIN LOOP — interrupt-driven keyboard, no polling needed
-       ============================================================ */
+    /* ===================== MAIN LOOP ===================== */
     while (1)
     {
         char c = keyboard_getchar();
