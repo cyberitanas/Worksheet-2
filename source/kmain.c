@@ -1,4 +1,5 @@
 #include "../drivers/framebuffer.h"
+#include "../drivers/keyboard.h"
 
 // Added function
 int sum_of_three(int a, int b, int c) {
@@ -11,7 +12,7 @@ void kmain(void* mbd, unsigned int magic)
     (void)magic;
     
     // Enable cursor (underline style)
-    fb_enable_cursor(14, 15);
+    fb_enable_cursor(0, 15);
     
     // Clear screen
     fb_clear();
@@ -42,20 +43,19 @@ void kmain(void* mbd, unsigned int magic)
     fb_write_hex(0xDEADBEEF);
     fb_write("\n\n");
     
-    // Test cursor positioning
-    fb_move(10, 10);
-    fb_write("Positioned text!");
-    
-    fb_move(0, 12);
-    fb_write("Back to normal flow\n");
-    
-    // Test functions from Task 2
+    // Test functions
     fb_write("\nMath tests:\n");
     fb_write("5 + 3 + 2 = ");
     fb_write_int(sum_of_three(5, 3, 2));
     fb_write("\n");
-    
-    fb_write("\nCursor is now blinking at the end!\n");
-    
-    while (1);
+
+    fb_write("\nKeyboard test (polling):\n");
+    fb_write("Type something:\n> ");
+
+    while (1)
+    {
+        char c = keyboard_getchar();
+        if (c)
+            fb_putc(c);
+    }
 }

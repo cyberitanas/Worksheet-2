@@ -22,8 +22,9 @@ LOADER_OBJ = $(BUILD_DIR)/loader.o
 KMAIN_OBJ  = $(BUILD_DIR)/kmain.o
 IO_OBJ     = $(BUILD_DIR)/io.o
 FB_OBJ     = $(BUILD_DIR)/framebuffer.o
+KBD_OBJ    = $(BUILD_DIR)/keyboard.o
 
-OBJECTS = $(LOADER_OBJ) $(IO_OBJ) $(KMAIN_OBJ) $(FB_OBJ)
+OBJECTS = $(LOADER_OBJ) $(IO_OBJ) $(KMAIN_OBJ) $(FB_OBJ) $(KBD_OBJ)
 
 KERNEL_ELF = kernel.elf
 OS_ISO = os.iso
@@ -51,11 +52,15 @@ $(IO_OBJ): source/io.asm | $(BUILD_DIR)
 $(FB_OBJ): drivers/framebuffer.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
+# Compile keyboard.c
+$(KBD_OBJ): drivers/keyboard.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
 # Compile kmain.c
 $(KMAIN_OBJ): source/kmain.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
-# Link kernel (now includes loader.o, io.o, kmain.o, framebuffer.o)
+# Link kernel
 $(KERNEL_ELF): $(OBJECTS)
 	$(LD) $(LDFLAGS) $^ -o $@
 
@@ -78,7 +83,7 @@ $(OS_ISO): $(KERNEL_ELF) | $(BOOT_DIR)
 run: $(OS_ISO)
 	qemu-system-i386 \
 		-display curses \
-		-monitor telnet::45454,server,nowait \
+		-monitor telnet::45455,server,nowait \
 		-serial mon:stdio \
 		-boot d \
 		-cdrom $(OS_ISO) \

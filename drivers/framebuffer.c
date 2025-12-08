@@ -226,3 +226,206 @@ void fb_write_hex(unsigned int num)
     
     fb_write(buffer);
 }
+/* ============================================
+   Extended Framebuffer Utility Functions
+   ============================================ */
+
+/** fb_get_cursor_x:
+ * Returns the current cursor X position
+ */
+unsigned int fb_get_cursor_x(void)
+{
+    return cursor_x;
+}
+
+/** fb_get_cursor_y:
+ * Returns the current cursor Y position
+ */
+unsigned int fb_get_cursor_y(void)
+{
+    return cursor_y;
+}
+
+/** fb_set_cursor_pos:
+ * Sets the cursor position (wrapper for fb_move)
+ */
+void fb_set_cursor_pos(unsigned int x, unsigned int y)
+{
+    if (x >= FB_WIDTH) x = FB_WIDTH - 1;
+    if (y >= FB_HEIGHT) y = FB_HEIGHT - 1;
+
+    cursor_x = x;
+    cursor_y = y;
+
+    fb_move_cursor(y * FB_WIDTH + x);
+}
+
+/** fb_write_at:
+ * Writes a string at the specified position
+ */
+void fb_write_at(unsigned int x, unsigned int y, const char* str)
+{
+    fb_set_cursor_pos(x, y);
+    fb_write(str);
+}
+
+/** fb_putc_at:
+ * Writes a single character at the specified position
+ */
+void fb_putc_at(unsigned int x, unsigned int y, char c)
+{
+    fb_set_cursor_pos(x, y);
+    fb_putc(c);
+}
+
+/** fb_write_uint:
+ * Writes an unsigned integer
+ */
+void fb_write_uint(unsigned int num)
+{
+    if (num == 0) {
+        fb_putc('0');
+        return;
+    }
+
+    char buffer[12];
+    int i = 0;
+
+    while (num > 0) {
+        buffer[i++] = '0' + (num % 10);
+        num /= 10;
+    }
+
+    while (i > 0) {
+        fb_putc(buffer[--i]);
+    }
+}
+
+/** fb_write_bin:
+ * Writes a number in binary format
+ */
+void fb_write_bin(unsigned int num)
+{
+    fb_write("0b");
+
+    int started = 0;
+    for (int i = 31; i >= 0; i--) {
+        if (num & (1 << i)) {
+            fb_putc('1');
+            started = 1;
+        } else if (started || i == 0) {
+            fb_putc('0');
+        }
+    }
+}
+
+/** fb_get_fg_color:
+ * Gets the current foreground color
+ */
+unsigned char fb_get_fg_color(void)
+{
+    return current_color & 0x0F;
+}
+
+/** fb_get_bg_color:
+ * Gets the current background color
+ */
+unsigned char fb_get_bg_color(void)
+{
+    return (current_color >> 4) & 0x0F;
+}
+
+/** fb_reset_color:
+ * Resets color to default (white on black)
+ */
+void fb_reset_color(void)
+{
+    fb_set_color(FB_WHITE, FB_BLACK);
+}
+
+/** fb_clear_line:
+ * Clears a specific line
+ */
+void fb_clear_line(unsigned int y)
+{
+    if (y >= FB_HEIGHT) return;
+
+    unsigned char* fb = (unsigned char*)FB_ADDRESS;
+
+    for (unsigned int x = 0; x < FB_WIDTH; x++) {
+        fb[(y * FB_WIDTH + x) * 2] = ' ';
+        fb[(y * FB_WIDTH + x) * 2 + 1] = current_color;
+    }
+}
+
+/** fb_clear_area:
+ * Clears a rectangular area
+ */
+void fb_clear_area(unsigned int x, unsigned int y,
+                   unsigned int width, unsigned int height)
+{
+    for (unsigned int row = y; row < y + height && row < FB_HEIGHT; row++) {
+        for (unsigned int col = x; col < x + width && col < FB_WIDTH; col++) {
+            unsigned char* fb = fb_get_position(col, row);
+            fb[0] = ' ';
+            fb[1] = current_color;
+        }
+    }
+}
+
+/** fb_draw_hline:
+ * Draws a horizontal line
+ */
+void fb_draw_hline(unsigned int x, unsigned int y,
+                   unsigned int length, char c)
+{
+    for (unsigned int i = 0; i < length && (x + i) < FB_WIDTH; i++) {
+        fb_putc_at(x + i, y, c);
+    }
+}
+
+/** fb_draw_vline:
+ * Draws a vertical line
+ */
+void fb_draw_vline(unsigned int x, unsigned int y,
+                   unsigned int length, char c)
+{
+    for (unsigned int i = 0; i < length && (y + i) < FB_HEIGHT; i++) {
+        fb_putc_at(x, y + i, c);
+    }
+}
+
+/** fb_draw_box:
+ * Draws a box outline using ASCII characters
+ */
+void fb_draw_box(unsigned int x, unsigned int y,
+                 unsigned int width, unsigned int height)
+{
+    if (width < 2 || height < 2) return;
+
+    fb_putc_at(x, y, '+');
+    fb_draw_hline(x + 1, y, width - 2, '-');
+    fb_putc_at(x + width - 1, y, '+');
+
+    for (unsigned int i = 1; i < height - 1; i++) {
+        fb_putc_at(x, y + i, '|');
+        fb_putc_at(x + width - 1, y + i, '|');
+    }
+
+    fb_putc_at(x, y + height - 1, '+');
+    fb_draw_hline(x + 1, y + height - 1, width - 2, '-');
+    fb_putc_at(x + width - 1, y + height - 1, '+');
+}
+
+/** fb_fill_box:
+ * Draws a filled box
+ */
+void fb_fill_box(unsigned int x, unsigned int y,
+                 unsigned int width, unsigned int height, char c)
+{
+    for (unsigned int row = 0; row < height && (y + row) < FB_HEIGHT; row++) {
+        for (unsigned int col = 0; col < width && (x + col) < FB_WIDTH; col++) {
+            fb_putc_at(x + col, y + row, c);
+        }
+    }
+}
