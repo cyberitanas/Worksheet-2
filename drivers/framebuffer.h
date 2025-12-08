@@ -27,5 +27,7 @@ void fb_set_color(unsigned char fg, unsigned char bg);
 void fb_clear(void);
 void fb_write_int(int num);
 void fb_write_hex(unsigned int num);
+void fb_enable_cursor(unsigned char cursor_start, unsigned char cursor_end);
+void fb_disable_cursor(void);
 
 #endif

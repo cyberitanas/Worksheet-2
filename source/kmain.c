@@ -10,6 +10,9 @@ void kmain(void* mbd, unsigned int magic)
     (void)mbd;
     (void)magic;
     
+    // Enable cursor (underline style)
+    fb_enable_cursor(14, 15);
+    
     // Clear screen
     fb_clear();
     
@@ -51,6 +54,8 @@ void kmain(void* mbd, unsigned int magic)
     fb_write("5 + 3 + 2 = ");
     fb_write_int(sum_of_three(5, 3, 2));
     fb_write("\n");
+    
+    fb_write("\nCursor is now blinking at the end!\n");
     
     while (1);
 }

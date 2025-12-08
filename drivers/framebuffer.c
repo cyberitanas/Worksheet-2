@@ -1,8 +1,5 @@
-
 #include "../source/io.h"
 #include "../source/stdint.h"
-
-
 
 // Framebuffer constants
 #define FB_ADDRESS ((uintptr_t)0x000B8000)
@@ -53,6 +50,23 @@ void fb_move_cursor(unsigned short pos)
     outb(FB_DATA_PORT, ((pos >> 8) & 0x00FF));
     outb(FB_COMMAND_PORT, FB_LOW_BYTE_COMMAND);
     outb(FB_DATA_PORT, pos & 0x00FF);
+}
+
+// Enable cursor with specified scanline start and end
+void fb_enable_cursor(unsigned char cursor_start, unsigned char cursor_end)
+{
+    outb(FB_COMMAND_PORT, 0x0A);
+    outb(FB_DATA_PORT, (inb(FB_DATA_PORT) & 0xC0) | cursor_start);
+ 
+    outb(FB_COMMAND_PORT, 0x0B);
+    outb(FB_DATA_PORT, (inb(FB_DATA_PORT) & 0xE0) | cursor_end);
+}
+
+// Disable cursor
+void fb_disable_cursor(void)
+{
+    outb(FB_COMMAND_PORT, 0x0A);
+    outb(FB_DATA_PORT, 0x20);
 }
 
 // Write character at current position
@@ -121,8 +135,10 @@ void fb_putc(char c)
         if (cursor_y >= FB_HEIGHT) {
             fb_scroll();
         }
+        fb_move_cursor(cursor_y * FB_WIDTH + cursor_x);
     } else if (c == '\r') {
         cursor_x = 0;
+        fb_move_cursor(cursor_y * FB_WIDTH + cursor_x);
     } else if (c == '\t') {
         cursor_x = (cursor_x + 4) & ~(4 - 1);
         if (cursor_x >= FB_WIDTH) {
@@ -132,6 +148,7 @@ void fb_putc(char c)
                 fb_scroll();
             }
         }
+        fb_move_cursor(cursor_y * FB_WIDTH + cursor_x);
     } else {
         fb_write_cell(c, current_color & 0x0F, (current_color >> 4) & 0x0F);
         fb_advance_cursor();
