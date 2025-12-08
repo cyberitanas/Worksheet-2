@@ -20,9 +20,10 @@ int command(int operation, int a, int b, int c)
 
 void kmain()
 {
-    // Test: 5 + 10 + 15 = 30 (0x1E in hex) Write result to eax register so we can see it in logQ.txt
-    int result = sum_of_three(5, 10, 15);
+    // Test: 100 - 25 = 75 (which is going to be written as 0x4B)
+    //  Write result to eax register so we can verify in logQ.txt
+    int result = subtract(100, 25);
     
-    // If EAX = 30 (0000000x1E), the test passed
+   
     asm volatile("mov %0, %%eax" : : "r"(result));
 }
