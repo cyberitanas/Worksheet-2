@@ -26,9 +26,6 @@ void keyboard_handler(void)
         return;
 
     key_buffer = scancode_map[scancode];
-
-    if (key_buffer)
-        fb_putc(key_buffer);
 }
 
 /* Non-blocking read */
