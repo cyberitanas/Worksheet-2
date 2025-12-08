@@ -73,9 +73,19 @@ $(OS_ISO): $(KERNEL_ELF) | $(BOOT_DIR)
 		-o $@ \
 		$(ISO_DIR)
 
+
 # Run in QEMU
 run: $(OS_ISO)
-	qemu-system-i386 -nographic -boot d -cdrom $(OS_ISO) -m 32 -d cpu -D logQ.txt
+	qemu-system-i386 \
+		-display curses \
+		-monitor telnet::45454,server,nowait \
+		-serial mon:stdio \
+		-boot d \
+		-cdrom $(OS_ISO) \
+		-m 32 \
+		-d cpu \
+		-D logQ.txt
+
 
 # Clean build artifacts
 clean:
