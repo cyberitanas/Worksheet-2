@@ -98,7 +98,7 @@ $(OS_ISO): $(KERNEL_ELF) | $(BOOT_DIR)
 run: $(OS_ISO)
 	qemu-system-i386 \
 		-display curses \
-		-monitor telnet::45454,server,nowait \
+		-monitor telnet::45455,server,nowait \
 		-serial mon:stdio \
 		-boot d \
 		-cdrom $(OS_ISO) \

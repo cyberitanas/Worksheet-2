@@ -2,30 +2,27 @@
 #include "../drivers/keyboard.h"
 #include "../source/idt.h"
 #include "../source/pic.h"
-
-/* ===================== Helpers ===================== */
+#include "../source/io.h"
 
 #define INPUT_BUF_SIZE 64
 
-/* Simple test function from before */
+/* =====================================================
+   BASIC UTILITY FUNCTIONS
+   ===================================================== */
+
 int sum_of_three(int a, int b, int c) {
     return a + b + c;
 }
 
-/* Blocking read of a single character from keyboard */
+/* Blocking getchar */
 static char read_char_blocking(void)
 {
-    char c = 0;
-    while ((c = keyboard_getchar()) == 0) {
-        /* spin until we get a char */
-    }
+    char c;
+    while ((c = keyboard_getchar()) == 0) {}
     return c;
 }
 
-/* Line input with basic echo + backspace.
- * Writes at current cursor position, stores into buf, null-terminated.
- * Returns length (not including null terminator).
- */
+/* Read a full line */
 static int read_line(char *buf, int max_len)
 {
     int len = 0;
@@ -33,37 +30,29 @@ static int read_line(char *buf, int max_len)
     while (1) {
         char c = read_char_blocking();
 
-        if (c == '\r') {
-            /* treat CR as newline */
-            c = '\n';
-        }
-
+        if (c == '\r') c = '\n';
         if (c == '\n') {
             fb_putc('\n');
             break;
-        } else if (c == '\b' || c == 127) {
-            /* backspace */
+        }
+
+        if (c == '\b' || c == 127) {
             if (len > 0) {
                 len--;
-                /* move cursor back, overwrite with space, move back again */
-                uint16_t x = fb_get_cursor_x();
-                uint16_t y = fb_get_cursor_y();
-                if (x > 0) {
-                    x--;
-                } else if (y > 0) {
-                    y--;
-                    x = FB_WIDTH - 1;
-                }
+                int x = fb_get_cursor_x();
+                int y = fb_get_cursor_y();
+                if (x > 0) x--;
+                else if (y > 0) { y--; x = FB_WIDTH - 1; }
                 fb_set_cursor_pos(x, y);
                 fb_putc(' ');
                 fb_set_cursor_pos(x, y);
             }
-        } else if (c >= 32 && c <= 126) {
-            /* printable ASCII */
-            if (len < max_len - 1) {
-                buf[len++] = c;
-                fb_putc(c);
-            }
+            continue;
+        }
+
+        if (c >= 32 && c <= 126 && len < max_len - 1) {
+            buf[len++] = c;
+            fb_putc(c);
         }
     }
 
@@ -71,74 +60,66 @@ static int read_line(char *buf, int max_len)
     return len;
 }
 
-/* Very simple decimal parser: supports optional leading '-' */
-static int parse_int(const char *s, int *out_ok)
+/* Parse integer from string */
+static int parse_int(const char *s, int *ok)
 {
-    int neg = 0;
-    int value = 0;
-    int i = 0;
-    *out_ok = 0;
+    int neg = 0, v = 0, i = 0;
+    *ok = 0;
 
-    if (s[0] == '-') {
-        neg = 1;
-        i = 1;
-    }
-
-    if (s[i] == '\0') {
-        return 0;
-    }
+    if (s[0] == '-') { neg = 1; i = 1; }
+    if (s[i] == '\0') return 0;
 
     for (; s[i] != '\0'; i++) {
-        if (s[i] < '0' || s[i] > '9') {
-            return 0;
-        }
-        value = value * 10 + (s[i] - '0');
+        if (s[i] < '0' || s[i] > '9') return 0;
+        v = v * 10 + (s[i] - '0');
     }
 
-    if (neg) value = -value;
-    *out_ok = 1;
-    return value;
+    if (neg) v = -v;
+    *ok = 1;
+    return v;
 }
 
-/* ============== Demo / Examples Section ============== */
+/* =====================================================
+   SYSTEM TEST (previously "Show examples")
+   ===================================================== */
 
-static void show_examples(void)
+static void system_test(void)
 {
     fb_clear();
     fb_set_color(FB_CYAN, FB_BLACK);
     fb_draw_box(0, 0, FB_WIDTH, 3);
-    fb_write_at(2, 1, "Welcome to Tiny OS!");
+    fb_write_at(2, 1, "ItanasCyber OS  |  Student ID: 22035711");
+    fb_reset_color();
     fb_set_cursor_pos(0, 4);
 
-    /* Color tests */
+    fb_write("=== Running System Test ===\n\n");
+
     fb_set_color(FB_GREEN, FB_BLACK);
-    fb_write("This is green text\n");
+    fb_write("This is green text.\n");
 
     fb_set_color(FB_RED, FB_BLACK);
-    fb_write("This is red text\n");
+    fb_write("This is red text.\n");
 
     fb_set_color(FB_CYAN, FB_BLUE);
-    fb_write("Cyan on blue!\n\n");
+    fb_write("Cyan on blue OK.\n\n");
 
     fb_reset_color();
-
-    /* Number tests */
-    fb_write("Testing numbers: ");
+    fb_write("Integer test: ");
     fb_write_int(12345);
-    fb_write("\n");
-
-    fb_write("Hex value: ");
+    fb_write("\nHex test: 0x");
     fb_write_hex(0xDEADBEEF);
     fb_write("\n\n");
 
-    /* Math test */
-    fb_write("Math tests:\n");
-    fb_write("5 + 3 + 2 = ");
+    fb_write("Math test (5 + 3 + 2): ");
     fb_write_int(sum_of_three(5, 3, 2));
     fb_write("\n\n");
+
+    fb_write("System test complete.\n\n");
 }
 
-/* ============== Math Menu ============== */
+/* =====================================================
+   C Math Functions Menu
+   ===================================================== */
 
 static void math_menu(void)
 {
@@ -146,20 +127,25 @@ static void math_menu(void)
 
     while (1) {
         fb_set_color(FB_YELLOW, FB_BLACK);
-        fb_write("=== Math Menu ===\n");
+        fb_write("=== C Math Functions ===\n");
         fb_reset_color();
-        fb_write("1) Sum of three numbers\n");
-        fb_write("2) Back to main menu\n");
+
+        fb_write("1) Sum of three numbers\n\n");
+        fb_write("2) Subtract two numbers\n\n");
+        fb_write("3) Multiply two numbers\n\n");
+        fb_write("4) Back to main menu\n\n");
         fb_write("Select option: ");
 
         read_line(buf, INPUT_BUF_SIZE);
 
-        if (buf[0] == '2') {
-            fb_write("\nReturning to main menu...\n\n");
+        if (buf[0] == '4') {
+            fb_write("\nReturning...\n\n");
             return;
-        } else if (buf[0] == '1') {
-            int ok1, ok2, ok3;
-            int a, b, c;
+        }
+
+        /* Sum */
+        if (buf[0] == '1') {
+            int a,b,c,ok1,ok2,ok3;
 
             fb_write("Enter first number: ");
             read_line(buf, INPUT_BUF_SIZE);
@@ -175,25 +161,76 @@ static void math_menu(void)
 
             if (!ok1 || !ok2 || !ok3) {
                 fb_set_color(FB_RED, FB_BLACK);
-                fb_write("Invalid input. Please enter integers only.\n\n");
+                fb_write("Invalid input.\n\n");
                 fb_reset_color();
             } else {
-                int result = sum_of_three(a, b, c);
                 fb_set_color(FB_GREEN, FB_BLACK);
                 fb_write("Result: ");
-                fb_write_int(result);
+                fb_write_int(a + b + c);
                 fb_write("\n\n");
                 fb_reset_color();
             }
-        } else {
+        }
+
+        /* Subtract */
+        else if (buf[0] == '2') {
+            int a,b,ok1,ok2;
+
+            fb_write("Enter minuend: ");
+            read_line(buf, INPUT_BUF_SIZE);
+            a = parse_int(buf, &ok1);
+
+            fb_write("Enter subtrahend: ");
+            read_line(buf, INPUT_BUF_SIZE);
+            b = parse_int(buf, &ok2);
+
+            if (!ok1 || !ok2) {
+                fb_set_color(FB_RED, FB_BLACK);
+                fb_write("Invalid input.\n\n");
+            } else {
+                fb_set_color(FB_GREEN, FB_BLACK);
+                fb_write("Result: ");
+                fb_write_int(a - b);
+                fb_write("\n\n");
+            }
+            fb_reset_color();
+        }
+
+        /* Multiply */
+        else if (buf[0] == '3') {
+            int a,b,ok1,ok2;
+
+            fb_write("Enter first number: ");
+            read_line(buf, INPUT_BUF_SIZE);
+            a = parse_int(buf, &ok1);
+
+            fb_write("Enter second number: ");
+            read_line(buf, INPUT_BUF_SIZE);
+            b = parse_int(buf, &ok2);
+
+            if (!ok1 || !ok2) {
+                fb_set_color(FB_RED, FB_BLACK);
+                fb_write("Invalid input.\n\n");
+            } else {
+                fb_set_color(FB_GREEN, FB_BLACK);
+                fb_write("Result: ");
+                fb_write_int(a * b);
+                fb_write("\n\n");
+            }
+            fb_reset_color();
+        }
+
+        else {
             fb_set_color(FB_RED, FB_BLACK);
-            fb_write("Unknown option. Try again.\n\n");
+            fb_write("Unknown option.\n\n");
             fb_reset_color();
         }
     }
 }
 
-/* ============== Color Menu ============== */
+/* =====================================================
+   Color Menu
+   ===================================================== */
 
 static void color_menu(void)
 {
@@ -201,101 +238,130 @@ static void color_menu(void)
 
     while (1) {
         fb_set_color(FB_CYAN, FB_BLACK);
-        fb_write("=== Color Menu ===\n");
+        fb_write("=== Color Settings ===\n");
         fb_reset_color();
-        fb_write("1) White on Black (default)\n");
-        fb_write("2) Green on Black (matrix vibe)\n");
-        fb_write("3) Cyan on Blue (retro)\n");
-        fb_write("4) Yellow on Black\n");
-        fb_write("5) Back to main menu\n");
+
+        fb_write("1) White on Black\n\n");
+        fb_write("2) Green on Black\n\n");
+        fb_write("3) Cyan on Blue\n\n");
+        fb_write("4) Yellow on Black\n\n");
+        fb_write("5) Back to main menu\n\n");
         fb_write("Select option: ");
 
         read_line(buf, INPUT_BUF_SIZE);
 
         if (buf[0] == '5') {
-            fb_write("\nReturning to main menu...\n\n");
+            fb_write("\nReturning...\n\n");
             return;
-        } else if (buf[0] == '1') {
-            fb_set_color(FB_WHITE, FB_BLACK);
-            fb_write("\nColor set to White on Black.\n\n");
-        } else if (buf[0] == '2') {
-            fb_set_color(FB_GREEN, FB_BLACK);
-            fb_write("\nColor set to Green on Black.\n\n");
-        } else if (buf[0] == '3') {
-            fb_set_color(FB_CYAN, FB_BLUE);
-            fb_write("\nColor set to Cyan on Blue.\n\n");
-        } else if (buf[0] == '4') {
-            fb_set_color(FB_YELLOW, FB_BLACK);
-            fb_write("\nColor set to Yellow on Black.\n\n");
-        } else {
-            fb_set_color(FB_RED, FB_BLACK);
-            fb_write("Unknown option. Try again.\n\n");
-            fb_reset_color();
         }
+
+        if (buf[0] == '1') fb_set_color(FB_WHITE, FB_BLACK);
+        else if (buf[0] == '2') fb_set_color(FB_GREEN, FB_BLACK);
+        else if (buf[0] == '3') fb_set_color(FB_CYAN, FB_BLUE);
+        else if (buf[0] == '4') fb_set_color(FB_YELLOW, FB_BLACK);
+        else {
+            fb_set_color(FB_RED, FB_BLACK);
+            fb_write("Unknown option.\n\n");
+            fb_reset_color();
+            continue;
+        }
+
+        fb_write("\nColor updated.\n\n");
+        return;
     }
 }
 
-/* ============== Main Menu ============== */
+/* =====================================================
+   Header + Main Menu
+   ===================================================== */
+
+static void draw_header(void)
+{
+    fb_set_color(FB_CYAN, FB_BLACK);
+    fb_draw_box(0, 0, FB_WIDTH, 3);
+    fb_write_at(2, 1, "ItanasCyber OS  |  Student ID: 22035711");
+    fb_reset_color();
+    fb_set_cursor_pos(0, 4);
+}
 
 static void show_main_menu(void)
 {
-    fb_set_color(FB_LIGHT_GREY, FB_BLACK);
-    fb_write("=== Main Menu ===\n");
-    fb_reset_color();
-    fb_write("1) Math functions\n");
-    fb_write("2) Color settings\n");
-    fb_write("3) Clear screen\n");
-    fb_write("4) Show examples again\n");
-    fb_write("5) Exit to idle (do nothing)\n");
+    fb_write("=== ItanasCyber OS Main Menu ===\n\n");
+
+    fb_write("1) C Math Functions\n\n");
+    fb_write("2) Color settings\n\n");
+    fb_write("3) Clear screen\n\n");
+    fb_write("4) Run system test\n\n");
+    fb_write("5) Exit to idle mode\n\n");
+    fb_write("6) Shutdown OS\n\n");
+
     fb_write("Select option: ");
 }
 
-/* ===================== kmain ===================== */
+/* =====================================================
+   Shutdown
+   ===================================================== */
+
+static void shutdown_os(void)
+{
+    fb_write("\nShutting down...\n");
+
+    outw(0x604, 0x2000);  // QEMU
+    outw(0xB004, 0x2000); // Bochs fallback
+
+    asm volatile("cli; hlt");
+}
+
+/* =====================================================
+   kmain
+   ===================================================== */
 
 void kmain(void* mbd, unsigned int magic)
 {
-    (void)mbd;
-    (void)magic;
+    (void)mbd; (void)magic;
 
-    /* Interrupts */
     idt_install();
     pic_init();
     asm volatile("sti");
 
-    /* Framebuffer setup */
     fb_enable_cursor(0, 15);
     fb_reset_color();
     fb_clear();
 
-    /* Show initial examples */
-    show_examples();
+    /* Draw header and menu ONLY */
+    draw_header();
 
-    /* Main loop: menu-driven */
     char buf[INPUT_BUF_SIZE];
 
     while (1) {
         show_main_menu();
         read_line(buf, INPUT_BUF_SIZE);
 
-        if (buf[0] == '1') {
-            math_menu();
-        } else if (buf[0] == '2') {
-            color_menu();
-        } else if (buf[0] == '3') {
+        if (buf[0] == '1') math_menu();
+        else if (buf[0] == '2') color_menu();
+        else if (buf[0] == '3') {
             fb_clear();
+            draw_header();
             fb_write("Screen cleared.\n\n");
-        } else if (buf[0] == '4') {
-            show_examples();
-        } else if (buf[0] == '5') {
-            fb_write("\nSystem is now idle. Press keys to see them echo:\n");
+        }
+        else if (buf[0] == '4') system_test();
+        else if (buf[0] == '5') {
+            fb_write("\nIdle mode. Keys will echo below.\n");
             while (1) {
                 char c = keyboard_getchar();
                 if (c) fb_putc(c);
             }
-        } else {
+        }
+        else if (buf[0] == '6') shutdown_os();
+
+        else {
             fb_set_color(FB_RED, FB_BLACK);
-            fb_write("Unknown option. Try again.\n\n");
+            fb_write("Invalid option.\n\n");
             fb_reset_color();
         }
+        
+    fb_clear();
+    draw_header();
+
     }
 }

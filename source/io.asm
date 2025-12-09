@@ -1,20 +1,35 @@
 global outb     ; Send byte to I/O port
 global inb      ; Read byte from I/O port
+global outw     ; Send 16-bit word to I/O port
 
-; outb - send a byte to an I/O port
-; stack: [esp + 8] data byte
-;        [esp + 4] I/O port
-;        [esp    ] return address
+; ------------------------------------------------------------
+; outb - send an 8-bit value to an I/O port
+; C prototype:
+;    void outb(unsigned short port, unsigned char data);
+; ------------------------------------------------------------
 outb:
-    mov al, [esp + 8]    ; Move data into AL
-    mov dx, [esp + 4]    ; Move port into DX
-    out dx, al           ; Send AL to port DX
+    mov dx, [esp + 4]    ; port
+    mov al, [esp + 8]    ; 8-bit data
+    out dx, al
     ret
 
-; inb - read a byte from an I/O port
-; stack: [esp + 4] I/O port
-;        [esp    ] return address
+; ------------------------------------------------------------
+; inb - read an 8-bit value from an I/O port
+; C prototype:
+;    unsigned char inb(unsigned short port);
+; ------------------------------------------------------------
 inb:
-    mov dx, [esp + 4]    ; Move port into DX
-    in al, dx            ; Read from port DX into AL
-    ret                  ; Return value in AL
+    mov dx, [esp + 4]    ; port
+    in  al, dx           ; read byte into AL
+    ret                  
+
+; ------------------------------------------------------------
+; outw - send a 16-bit value to an I/O port
+; C prototype:
+;    void outw(unsigned short port, unsigned short value);
+; ------------------------------------------------------------
+outw:
+    mov dx, [esp + 4]    ; port
+    mov ax, [esp + 8]    ; 16-bit value
+    out dx, ax
+    ret
