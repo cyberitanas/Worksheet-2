@@ -25,8 +25,12 @@ void keyboard_handler(void)
     if (scancode & 0x80)
         return;
 
+    /* === PROOF THAT PIC IS REMAPPED === */
+
     key_buffer = scancode_map[scancode];
 }
+
+
 
 /* Non-blocking read */
 char keyboard_getchar(void)

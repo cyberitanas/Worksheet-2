@@ -321,7 +321,7 @@ void kmain(void* mbd, unsigned int magic)
     (void)mbd; (void)magic;
 
     idt_install();
-    pic_init();
+    pic_remap(0x20, 0x28);
     asm volatile("sti");
 
     fb_enable_cursor(0, 15);
