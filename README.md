@@ -90,6 +90,10 @@ Helin, E. and Renberg, A., 2015. The little book about OS development.
 ;
 ; Constructing the IDT is essential, as the CPU relies on these
 ; descriptors to safely transfer control during hardware events.
+
+Implementing Task 3 required building the foundational infrastructure for interrupt delivery by constructing a complete Interrupt Descriptor Table (IDT) and installing handlers for key hardware events. Using the x86 descriptor format, I defined packed structures for both IDT entries and the IDT pointer, ensuring the CPU could correctly interpret descriptor layout.
+ I then allocated a 256-entry table and implemented idt_set_gate() to populate individual descriptors by splitting the handler address into 16-bit segments and configuring each entry with the kernel code segment and appropriate interrupt-gate flags. The idt_install() routine initialises the table by clearing all descriptors, binding the keyboard interrupt stub to the remapped IRQ1 vector at entry 33 (0x21), and loading the table through the lidt instruction so the CPU can begin dispatching through it.
+  The approach follows the incremental methodology described in The Little Book About OS Development, which emphasises separating assembly-level interrupt stubs from high-level C handlers and constructing minimal but verifiable components during kernel bring-up. The IDT created here forms the core mechanism through which hardware interrupts—such as keyboard events delivered via the PIC remapping implemented earlier—are safely routed into the kernel’s interrupt handling subsystem.
 ; ======================================================================
 
 
