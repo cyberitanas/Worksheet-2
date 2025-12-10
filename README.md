@@ -1,239 +1,108 @@
 
+# build
+make
+
+# create ISO (Makefile should do this, but here are the commands if needed)
+# cp kernel.elf iso/boot/
+# cp -r grub/* iso/boot/grub/
+# genisoimage -R -b "boot/grub/stage2_eltorito" -no-emul-boot -boot-load-size 4 -A "OS" -input-charset utf-8 -o os.iso iso/
+
+# run qemu (text mode)
+qemu-system-i386 -curses -monitor telnet::45454,server,nowait -serial mon:stdio -boot d -cdrom os.iso -m 32
+
+# run qemu (nographic)
+qemu-system-i386 -nographic -boot d -cdrom os.iso -m 32
 
 
 
 
 
-# Worksheet 2 part 1– Inputs & Interrupts
+# Worksheet 2 — Inputs & Interrupts
 
+A short report describing the implementation for Worksheet 2 (Parts 1 & 2). This project implements a minimal Multiboot kernel, a framebuffer UI, basic C functions called from assembly, and an interrupt-driven keyboard input system.
 
-## 1. Task 1 — Bootloader, Linker Script, and Minimal Kernel
+**Build & Run (Quickstart)**
 
-### Bootloader (loader.asm)
+Prereqs: `make`, `qemu-system-i386`, `genisoimage` (or `mkisofs`)
 
-The bootloader is implemented according to the Multiboot specification.
-It declares:
+```bash
+# build the kernel and ISO (Makefile performs these steps)
+make
 
-* `MAGIC_NUMBER = 0x1BADB002`
-* `FLAGS = 0x0`
-* `CHECKSUM = -(MAGIC_NUMBER + FLAGS)`
-
-These constants allow GRUB to recognise the kernel as a valid Multiboot OS image.
-
-The `.text` section contains the entry point `loader:` which initially loads:
-
-```asm
-mov eax, 0xCAFEBABE
-```
-![alt text](screenshots/task1_COMPLETE.png)
-This satisfies Task 1’s requirement to boot into an OS that sets `EAX = 0xCAFEBABE` and halts in an infinite loop. GRUB loads this at the physical address `0x00100000` as specified by the linker script.
-
-### Linker Script (link.ld)
-
-The linker script:
-![alt text](screenshots/link.ld.png)
-
-* places the kernel at the **1 MB boundary**, as GRUB requires
-* aligns `.text`, `.rodata`, `.data`, and `.bss` sections to 4 KB boundaries
-* defines the entry point `ENTRY(loader)`
-
-This ensures the generated ELF file is compatible with Multiboot.
-
-### ISO Construction
-
-The Makefile:
-
-* compiles the kernel
-* copies `kernel.elf` into `iso/boot/`
-* copies GRUB’s boot files into `iso/boot/grub/`
-* embeds a valid `menu.lst` describing how GRUB boots the OS
-* uses `genisoimage` to create `os.iso`
-
-Running on QEMU using:
-
-```
-qemu-system-i386 -nographic -boot d -cdrom os.iso -m 32 -d cpu -D logQ.txt (this later changes in worksheet part 2)
-```
-
-allows validation that `EAX = 0xCAFEBABE`, satisfying Task 1 completely.
-![alt text](screenshots/task1_COMPLETE.png)
-
-
-## 2. Task 2 — Transition to C and Implementation of C Functions
-
-### Calling C from Assembly
-
-In `loader.asm`, instead of halting after writing to EAX, control is passed to C via:
-
-```asm
-extern kmain
-call kmain
-```
-
-The stack and multiboot parameters are forwarded properly.
-
-### sum_of_three() and Additional C Functions
-![task2 complete!](/screenshots/task2_COMPLETE.png)
-
-The required function:
-
-```c
-int sum_of_three(int a, int b, int c)
-```
-![alt text](mathmenu.png)
-is implemented and used in the "System Test" menu.
-Two additional C functions were added:
-
-1. **Subtraction**
-![task2 complete!](/screenshots/task2_COMPLETE_2.png)
-Testing for calling C function to subtract 100 - 25 and write to eax in hex.
-
-2. **Multiplication**
-
-These are exposed in the C Math Menu of the kernel.
-
-A full interactive menu system is written using the framebuffer API, allowing users to exercise the functions inside the running OS.
-![alt text](screenshots/menu.png)
-
-
-## 3. Task 3 — Framebuffer Driver, Cursor, Colors, and Enhanced UI
-
-### Framebuffer Implementation
-
-The framebuffer driver in `drivers/framebuffer.c` provides:
-
-* direct memory-mapped I/O to address `0xB8000`
-* `fb_putc()`, `fb_write()`, `fb_write_int()`, `fb_write_hex()`
-* scrolling and cursor manipulation
-* support for foreground/background colors
-
-The cursor is controlled using I/O ports (`0x3D4`, `0x3D5`), implementing:
-
-![alt text](cursor.png)
-
-```c
-void fb_set_cursor_pos(int x, int y);
-void fb_enable_cursor(int start, int end);
-```
-
-### 2D API Implementation
-
-The driver exposes a clear 2D drawing abstraction:
-
-* `fb_draw_box()`
-* `fb_write_at(x, y, text)`
-* `fb_clear()`
-* runtime color selection via menu
-
-This satisfies the requirement for a full 2D framebuffer API.
-
-### System Test Screen
-
-The system test demonstrates all framebuffer features:
-![alt text](screenshots/task3_COMPLETE_2.png)
-* drawing a header box
-* writing text in different colours
-* printing integers and hex values
-* verifying math functions
-
-### QEMU Curses Mode
-
-The OS runs in text mode using:
-
-```
+# run in curses/text mode
 qemu-system-i386 -curses -monitor telnet::45454,server,nowait \
     -serial mon:stdio -boot d -cdrom os.iso -m 32
+
+# run in nographic mode (serial output)
+qemu-system-i386 -nographic -boot d -cdrom os.iso -m 32
 ```
 
-A second terminal provides telnet access to exit QEMU safely.
+**What’s in this repo**
 
+- `loader.asm`, `kmain.c`, `link.ld` — Multiboot entry and kernel startup
+- `drivers/framebuffer.c` — text-mode framebuffer API and UI primitives
+- `drivers/keyboard.c` — keyboard driver using IRQ1
+- `pic.c`, `interrupts.c`, `interrupt_asm.asm` — PIC remap, IDT and handlers
+- `Makefile`, `iso/` and `screenshots/` — build and demo assets
 
+## Summary of features
 
-## 4. Task 4 — Interrupts, PIC, IDT, and Keyboard Input (Worksheet 2 Part 2)
+- Multiboot-compatible bootloader that sets `EAX = 0xCAFEBABE` for verification
+- Linker script placing kernel at 1 MiB and aligning sections
+- Framebuffer driver with cursor control, colors, and 2D helper functions
+- C functions callable from assembly (`sum_of_three`, subtraction, multiplication)
+- Interrupt handling: PIC remap, IDT installation, assembly stubs, and a keyboard IRQ-driven driver
 
-### I/O Ports (inb / outb)
+## 1. Bootloader, Linker Script, and Minimal Kernel
 
-Per worksheet instructions, I implemented:
+The bootloader follows the Multiboot spec and defines the required constants:
 
-```asm
-global inb
-global outb
-global outw
-```
+- `MAGIC_NUMBER = 0x1BADB002`
+- `FLAGS = 0x0`
+- `CHECKSUM = -(MAGIC_NUMBER + FLAGS)`
 
-in `io.asm`, allowing the OS to interact with hardware.
-These match the required prototypes:
+The entrypoint (`loader`) initially writes `0xCAFEBABE` to `EAX` to satisfy the worksheet’s verification step and then transfers control to `kmain` in C.
 
-```c
-unsigned char inb(unsigned short port);
-void outb(unsigned short port, unsigned char data);
-void outw(unsigned short port, unsigned short value);
-```
+The linker script (`link.ld`) places the kernel at the 1 MiB boundary, aligns sections to 4 KiB, and sets `ENTRY(loader)` so GRUB can boot the generated ELF.
 
-### PIC Remapping & Interrupt Enabling
+Screenshot: `screenshots/task1_COMPLETE.png`
 
-The PIC driver (`pic.c`) implements:
+## 2. Transition to C and C Functions
 
-* `pic_remap(0x20, 0x28)`
-* masking/unmasking IRQs
-* enabling IRQ1 for the keyboard
-* acknowledging interrupts using EOI commands
+Assembly calls `kmain` via `extern kmain` / `call kmain`. The kernel exposes an interactive menu (framebuffer UI) that exercises C functions:
 
-This satisfies all PIC-related requirements.
+- `int sum_of_three(int a, int b, int c)`
+- subtraction and multiplication helpers
 
-### IDT and Interrupt Descriptors
+Screenshots: `screenshots/task2_COMPLETE.png`, `screenshots/task2_COMPLETE_2.png`, `screenshots/menu.png`
 
-My `interrupts.h` and `interrupts.c` implement:
+## 3. Framebuffer Driver & UI
 
-* the IDT entry structure
-* the IDT pointer
-* CPU state & stack state structures
-* `interrupts_install_idt()` to install handlers
-* connection between assembly stubs and C dispatcher
+`drivers/framebuffer.c` implements text-mode helpers using VGA text buffer (`0xB8000`): `fb_putc`, `fb_write`, `fb_write_int`, `fb_write_hex`, scrolling, cursor control (`fb_set_cursor_pos`, `fb_enable_cursor`), and simple 2D functions (`fb_draw_box`, `fb_write_at`, `fb_clear`).
 
-### Assembly Interrupt Handlers
+Screenshot: `screenshots/task3_COMPLETE_2.png`
 
-Two files were implemented:
+## 4. Interrupts, PIC, IDT, and Keyboard Input
 
-#### interrupt_handlers.asm
+This project adds interrupt-driven keyboard input:
 
-Defines:
+- `io.asm` provides `inb`, `outb`, `outw` so C code can use I/O ports
+- `pic.c` remaps the PIC (`pic_remap(0x20, 0x28)`), masks/unmasks IRQs, and enables IRQ1
+- IDT entries and installation are implemented in `interrupts.c` and loaded via `interrupt_handlers.asm`
+- Assembly stubs in `interrupt_asm.asm` push interrupt numbers and CPU state before transferring to the C dispatcher
+- `drivers/keyboard.c` reads scancodes from port `0x60`, maps to ASCII, and exposes `keyboard_getchar()` for simple non-blocking reads
 
-```
-load_idt
-```
+The kernel initialises these systems during `kmain` startup: install IDT, remap PIC, unmask IRQ1 and enable interrupts (`sti`). In idle mode the kernel echoes keystrokes as they arrive, demonstrating the full interrupt path.
 
-to load the IDT register via `lidt`.
+---
 
-#### interrupt_asm.asm
+If you want, I can also:
 
-Defines generic interrupt stubs and specific handlers:
+- add a short Table of Contents
+- move the Build & Run section into a separate `docs/` file
+- create a small automated test script that runs QEMU and checks for the `EAX` marker in the log
 
-* `interrupt_handler_33` (IRQ1 keyboard)
-* `interrupt_handler_14` (page fault)
-
-These push the interrupt number + error code and jump to the shared handler.
-
-### Keyboard Driver
-
-The keyboard driver:
-
-* reads scancodes from I/O port `0x60`
-* converts scancodes via lookup table to ASCII
-* stores the last keypress into a buffer
-* exposes `keyboard_getchar()` for non-blocking reads
-
-### Integration in Kernel (kmain)
-
-The kernel:
-
-1. installs the IDT
-2. installs interrupt handlers
-3. initialises PIC / unmasks IRQ1
-4. enables interrupts (`sti`)
-
-Idle mode echoes keystrokes, demonstrating that the interrupt-driven input system works.
-
+Screenshots and assets are referenced from the `screenshots/` directory; ensure that folder is present when previewing the rendered README.
 
 ## Worksheet 2 – Part 2: Inputs & Interrupts
 
