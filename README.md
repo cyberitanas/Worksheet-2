@@ -333,7 +333,7 @@ The kernel:
 3. initialises PIC / unmasks IRQ1
 4. enables interrupts (`sti`)
 
-Idle mode echoes keystrokes, demonstrating that the interrupt-driven input system works.
+Idle mode echoes keystrokes, demonstrating that the interruptdriven input system works.
 
 
 ## Worksheet 2 – Part 2: Inputs & Interrupts
@@ -341,7 +341,6 @@ Idle mode echoes keystrokes, demonstrating that the interrupt-driven input syste
 Here is a revised version of the Worksheet 2 Part 2 README section, rewritten to sound much more natural and coursework-style, without the rigid “requirement / implementation / outcome” phrasing.
 It reads like a student describing how they built the interrupt subsystem and how each part fits together in their OS.
 
-Ready to paste:
 
 
 
@@ -353,13 +352,10 @@ This part of the worksheet focuses on adding keyboard input through hardware int
 
 ## Extending the I/O Library
 
-The first step was to extend the low-level I/O library so the OS can *read* from hardware ports. Up to this point I had only implemented output instructions, which were enough for the framebuffer. Keyboard input, however, requires using the `in` CPU instruction. I added this as a new function (`inb`) inside `io.asm`, and declared it in `io.h`. This gives the rest of the kernel a simple C-level interface for interacting with I/O ports like `0x60`, which is where the keyboard places its scancodes.
+The first step was to extend the low level I/O library so the OS can *read* from hardware ports. Up to this point I had only implemented output instructions, which were enough for the framebuffer. Keyboard input, however, requires using the `in` CPU instruction. I added this as a new function (`inb`) inside `io.asm`, and declared it in `io.h`. This gives the rest of the kernel a simple C interface for interacting with I/O ports like `0x60`, which is where the keyboard places its scancodes.
 
 
 
-## Type Definitions
-
-To support the interrupt code and keep data structures consistent, I created a `types.h` file that defines the 8-, 16-, and 32-bit integer types used across the PIC, IDT, and handler code. This standardisation becomes important once we start building packed structures like the IDT entries, where field sizes must match the CPU’s expectations.
 
 
 
@@ -421,7 +417,6 @@ All of the above components are activated during kernel startup in `kmain.c`. On
 
 1. Installs the IDT,
 2. Sets up the PIC,
-3. And enables interrupts using the `sti` instruction.
 
 From that point on, keyboard input is interrupt-driven. In idle mode the kernel simply echoes keystrokes as they arrive, which demonstrates that:
 
