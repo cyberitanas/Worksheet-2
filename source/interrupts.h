@@ -45,21 +45,14 @@ struct stack_state {
     u32int eflags;
 } __attribute__((packed));
 
-/* -----------------------------------------
-   C interrupt dispatcher
------------------------------------------ */
-void interrupt_handler(struct cpu_state* cpu, u32int interrupt, struct stack_state* stack);
+void interrupt_handler(struct cpu_state cpu, u32int interrupt, struct stack_state stack);
 
 /* -----------------------------------------
    Install IDT entries (interrupts.c)
 ----------------------------------------- */
 void interrupts_install_idt();
 
-/* -----------------------------------------
-   External ASM functions
------------------------------------------ */
-void load_idt(u32int);
-void interrupt_handler_32();
+void load_idt(u32int idt_address);
 void interrupt_handler_33();
 void interrupt_handler_14();
 

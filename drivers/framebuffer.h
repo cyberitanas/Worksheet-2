@@ -56,6 +56,8 @@ uint16_t fb_get_cursor_y(void);
 
 void fb_putc(char c);
 void fb_write(const char* str);
+void fb_backspace(void);
+void fb_newline(void);
 
 /** fb_putc_at:
  * Writes one character at (x,y) without moving global cursor.

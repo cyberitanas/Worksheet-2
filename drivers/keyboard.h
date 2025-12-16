@@ -1,21 +1,11 @@
-#pragma once
+#ifndef INCLUDE_KEYBOARD_H
+#define INCLUDE_KEYBOARD_H
 
-/* --- Constants --- */
-// Keyboard I/O Port Address
-#define KEYBOARD_DATA_PORT 0x60
+#include "../include/types.h"
 
-/* --- External Declarations --- */
-// I/O Port Access function
-extern unsigned char inb(unsigned short port);
+#define KEYBOARD_MAX_ASCII 0x53
 
-// Keyboard data map and buffer
-extern const unsigned char scancode_map[];
-extern char key_buffer;
+u8int keyboard_read_scan_code(void);
+u8int keyboard_scan_code_to_ascii(u8int scan_code);
 
-/* --- Keyboard API --- */
-char keyboard_getchar(void);
-void keyboard_handler(void);
-
-/* --- PIC API --- */
-// This part is already correct, but ensure pic.c is linked
-void pic_acknowledge(unsigned int irq);
+#endif

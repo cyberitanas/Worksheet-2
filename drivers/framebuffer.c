@@ -150,13 +150,14 @@ void fb_scroll(void)
 
 void fb_putc(char c)
 {
+    if (c == '\b') {
+        fb_backspace();
+        return;
+    }
+
     if (c == '\n')
     {
-        cursor_x = 0;
-        cursor_y++;
-        if (cursor_y >= FB_HEIGHT)
-            fb_scroll();
-        fb_update_hw_cursor();
+        fb_newline();
         return;
     }
 
@@ -186,6 +187,34 @@ void fb_write(const char* str)
 {
     while (*str)
         fb_putc(*str++);
+}
+
+void fb_backspace(void)
+{
+    if (cursor_x == 0 && cursor_y == 0) {
+        return;
+    }
+
+    if (cursor_x > 0) {
+        cursor_x--;
+    } else {
+        cursor_y--;
+        cursor_x = FB_WIDTH - 1;
+    }
+
+    *fb_ptr(cursor_x, cursor_y) = (fb_color_byte() << 8) | ' ';
+    fb_update_hw_cursor();
+}
+
+void fb_newline(void)
+{
+    cursor_x = 0;
+    cursor_y++;
+    if (cursor_y >= FB_HEIGHT) {
+        fb_scroll();
+        cursor_y = FB_HEIGHT - 1;
+    }
+    fb_update_hw_cursor();
 }
 
 void fb_putc_at(uint16_t x, uint16_t y, char c)

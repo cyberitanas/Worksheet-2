@@ -39,70 +39,82 @@ qemu-system-i386 -nographic -boot d -cdrom os.iso -m 32
 
 **What’s in this repo**
 
-- `loader.asm`, `kmain.c`, `link.ld` — Multiboot entry and kernel startup
-- `drivers/framebuffer.c` — text-mode framebuffer API and UI primitives
-- `drivers/keyboard.c` — keyboard driver using IRQ1
-- `pic.c`, `interrupts.c`, `interrupt_asm.asm` — PIC remap, IDT and handlers
-- `Makefile`, `iso/` and `screenshots/` — build and demo assets
+- `source/loader.asm`, `source/link.ld` — Multiboot entry + linker script
+- `source/kmain.c` — kernel entry, shell, command handlers
+- `drivers/framebuffer.c` — VGA text-mode driver (color, cursor, scrolling)
+- `drivers/keyboard.c`, `drivers/input.c` — keyboard scan-code mapping + circular buffer
+- `source/interrupts.c`, `source/pic.c`, `source/interrupt_asm.asm`, `source/interrupt_handlers.asm` — IDT, PIC remap, ISR stubs
+- `source/io.asm` — `inb/outb/outw` port I/O helpers
+- `iso/boot/grub/` — GRUB menu + stage2, used for building the ISO
+- `screenshots/` — captures for the report
 
 ## Summary of features
 
-- Multiboot-compatible bootloader that sets `EAX = 0xCAFEBABE` for verification
-- Linker script placing kernel at 1 MiB and aligning sections
-- Framebuffer driver with cursor control, colors, and 2D helper functions
-- C functions callable from assembly (`sum_of_three`, subtraction, multiplication)
-- Interrupt handling: PIC remap, IDT installation, assembly stubs, and a keyboard IRQ-driven driver
+- Multiboot-compatible loader that writes `0xCAFEBABE` to `EAX` and chains into C
+- Custom linker script placing the kernel at 1 MiB (GRUB-friendly layout)
+- Framebuffer driver with cursor control, colors, 2D helpers, and ANSI-free text output
+- C math helpers callable from assembly (`sum_of_three`, `subtract_pair`, `multiply_pair`)
+- Interrupt pipeline: PIC remap, IDT installation, NASM stubs, and a keyboard IRQ handler that feeds a circular buffer
+- Tiny shell with `help`, `clear`, `echo`, math tests, and a `colours` palette demo
 
-## 1. Bootloader, Linker Script, and Minimal Kernel
+## 1. Task 1 — Bootloader, Linker Script, Minimal Kernel (Part 1)
 
-The bootloader follows the Multiboot spec and defines the required constants:
+The Multiboot header in `loader.asm` contains the required `MAGIC`, `FLAGS`, and `CHECKSUM`. GRUB loads the kernel at 0x00100000 (see `link.ld`). The loader sets `EAX = 0xCAFEBABE` before jumping to `kmain`, matching the worksheet verification step. Use `screenshots/task1_COMPLETE.png` or capture a fresh GRUB boot + log entry showing EAX if re-running.
 
-- `MAGIC_NUMBER = 0x1BADB002`
-- `FLAGS = 0x0`
-- `CHECKSUM = -(MAGIC_NUMBER + FLAGS)`
+Suggested screenshot: GRUB boot log or QEMU log showing `EAX=CAFEBABE` (from `logQ.txt`).
 
-The entrypoint (`loader`) initially writes `0xCAFEBABE` to `EAX` to satisfy the worksheet’s verification step and then transfers control to `kmain` in C.
+![GRUB + Multiboot verification](screenshots/task1_COMPLETE.png)
+![Linker script placement](screenshots/link.ld.png)
 
-The linker script (`link.ld`) places the kernel at the 1 MiB boundary, aligns sections to 4 KiB, and sets `ENTRY(loader)` so GRUB can boot the generated ELF.
+## 2. Task 2 — Calling C from Assembly (Part 1)
 
-Screenshot: `screenshots/task1_COMPLETE.png`
+`kmain` is invoked directly from `loader.asm` after setting up a stack. The shell exposes the required `sum_of_three` plus two additional helpers (`subtract_pair`, `multiply_pair`). Commands `sum`, `sub`, and `mul` print the results on screen. Suggested screenshot: the shell prompt running `sum`, `sub`, `mul` back-to-back.
 
-## 2. Transition to C and C Functions
+![sum/sub/mul commands](screenshots/task2_COMPLETE.png)
+![Additional math test](screenshots/task2_COMPLETE_2.png)
+![Math menu UI](screenshots/math_menu.png)
 
-Assembly calls `kmain` via `extern kmain` / `call kmain`. The kernel exposes an interactive menu (framebuffer UI) that exercises C functions:
+## 3. Task 3 — Framebuffer Driver & UI (Part 1)
 
-- `int sum_of_three(int a, int b, int c)`
-- subtraction and multiplication helpers
+`drivers/framebuffer.c` talks to VGA text memory at 0xB8000, implements `fb_putc`, `fb_write`, integer formatting, cursor enable/disable, `fb_write_at`, `fb_draw_box`, etc. The new `colours` command demonstrates colour + background combinations in one screen. Suggested screenshot: run `colours` to show the palette output (captures both FG/BG requirements).
 
-Screenshots: `screenshots/task2_COMPLETE.png`, `screenshots/task2_COMPLETE_2.png`, `screenshots/menu.png`
+![Framebuffer UI](screenshots/task3_menu.png)
+![Framebuffer primitives](screenshots/task3_COMPLETE.png)
+![Colour palette demo](screenshots/task3_COMPLETE_2.png)
+![Cursor control](screenshots/cursor.png)
 
-## 3. Framebuffer Driver & UI
+Cursor control uses ports `0x3D4/0x3D5` (`fb_set_cursor_pos`), satisfying the I/O-port requirement.
 
-`drivers/framebuffer.c` implements text-mode helpers using VGA text buffer (`0xB8000`): `fb_putc`, `fb_write`, `fb_write_int`, `fb_write_hex`, scrolling, cursor control (`fb_set_cursor_pos`, `fb_enable_cursor`), and simple 2D functions (`fb_draw_box`, `fb_write_at`, `fb_clear`).
+## 4. Task 4 — README & Documentation (Part 1)
 
-Screenshot: `screenshots/task3_COMPLETE_2.png`
+This README plus the screenshots folder covers the narrative, boot steps, framebuffer design, and demonstrates the OS running. Include a screenshot of the help text + student ID header to show context.
 
-## 4. Interrupts, PIC, IDT, and Keyboard Input
+## 5. Task 1 — Keyboard Interrupts (Part 2)
 
-This project adds interrupt-driven keyboard input:
+`source/interrupts.c` configures the IDT and PIC (remap to 0x20/0x28), installs `interrupt_handler_33`, and unmask IRQ1. `source/interrupt_asm.asm` provides `load_idt` and the assembly stubs that save registers, build `cpu_state`/`stack_state`, and call the shared C handler. The handler drains port `0x60`, converts scan codes to ASCII (`drivers/keyboard.c`), updates the framebuffer, and pushes characters into the circular buffer. Suggested screenshot: the shell echoing keyboard input, showing backspace/newline handling.
 
-- `io.asm` provides `inb`, `outb`, `outw` so C code can use I/O ports
-- `pic.c` remaps the PIC (`pic_remap(0x20, 0x28)`), masks/unmasks IRQs, and enables IRQ1
-- IDT entries and installation are implemented in `interrupts.c` and loaded via `interrupt_handlers.asm`
-- Assembly stubs in `interrupt_asm.asm` push interrupt numbers and CPU state before transferring to the C dispatcher
-- `drivers/keyboard.c` reads scancodes from port `0x60`, maps to ASCII, and exposes `keyboard_getchar()` for simple non-blocking reads
+![PIC remap walkthrough](screenshots/PIC.png)
+![Keyboard IRQ demo](screenshots/menu.png)
 
-The kernel initialises these systems during `kmain` startup: install IDT, remap PIC, unmask IRQ1 and enable interrupts (`sti`). In idle mode the kernel echoes keystrokes as they arrive, demonstrating the full interrupt path.
+## 6. Task 2 — Input Buffer API (Part 2)
 
----
+`drivers/input.c` implements a 256-byte circular buffer with `input_reset`, `input_putc`, `input_backspace`, `getc`, and `readline`. The interrupt handler uses these APIs to feed keystrokes, and `readline` consumes them in `kmain`. Suggested screenshot: highlight the buffer code or show `readline` blocking/resuming (e.g., type a command, press backspace, show the corrected input).
 
-If you want, I can also:
+## 7. Task 3 — Terminal / Shell (Part 2)
 
-- add a short Table of Contents
-- move the Build & Run section into a separate `docs/` file
-- create a small automated test script that runs QEMU and checks for the `EAX` marker in the log
+The `shell()` loop in `kmain.c` displays `myos>`, trims whitespace, and executes `help`, `clear`, `sum`, `sub`, `mul`, `echo`, and `colours`. Unknown commands return a helpful message. Suggested screenshot: the `help` output plus an `echo` example (already present in `screenshots/menu.png` or capture a new one).
 
-Screenshots and assets are referenced from the `screenshots/` directory; ensure that folder is present when previewing the rendered README.
+## 8. Part 2 README Notes
+
+The sections above describe the interrupt/keyboard/buffer flow. For final submission, include screenshots like:
+
+1. **Boot verification:** GRUB + `Tiny OS started successfully.` banner (with Student ID `22035711`).
+2. **C math menu:** `sum/sub/mul` outputs.
+3. **Framebuffer colours:** `colours` command output showing FG/BG combinations.
+4. **Keyboard interrupts:** typed command echoing, including backspace handling.
+5. **QEMU log snippet:** optional, showing `EAX=0xCAFEBABE` if requested in viva.
+
+Mention any constraints (e.g., limited screen space) and future extensions (history, tab completion) if desired.
 
 ## Worksheet 2 – Part 2: Inputs & Interrupts
 
@@ -424,5 +436,3 @@ From that point on, keyboard input is interrupt-driven. In idle mode the kernel 
 * The interrupt stubs are working,
 * The C dispatcher is receiving the interrupt number,
 * And the keyboard driver is decoding scancodes correctly.
-
-

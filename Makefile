@@ -23,12 +23,15 @@ KMAIN_OBJ  = $(BUILD_DIR)/kmain.o
 IO_OBJ     = $(BUILD_DIR)/io.o
 FB_OBJ     = $(BUILD_DIR)/framebuffer.o
 KBD_OBJ    = $(BUILD_DIR)/keyboard.o
-IDT_OBJ    = $(BUILD_DIR)/idt.o
+INPUT_OBJ  = $(BUILD_DIR)/input.o
 PIC_OBJ    = $(BUILD_DIR)/pic.o
-INT_OBJ    = $(BUILD_DIR)/interrupts.o
+INTERRUPTS_OBJ = $(BUILD_DIR)/interrupts.o
+INT_ASM_OBJ    = $(BUILD_DIR)/interrupt_asm.o
+INT_STUBS_OBJ  = $(BUILD_DIR)/interrupt_handlers.o
 
 OBJECTS = $(LOADER_OBJ) $(IO_OBJ) $(KMAIN_OBJ) \
-          $(FB_OBJ) $(KBD_OBJ) $(IDT_OBJ) $(PIC_OBJ) $(INT_OBJ)
+          $(FB_OBJ) $(KBD_OBJ) $(INPUT_OBJ) $(PIC_OBJ) \
+          $(INTERRUPTS_OBJ) $(INT_ASM_OBJ) $(INT_STUBS_OBJ)
 
 KERNEL_ELF = kernel.elf
 OS_ISO = os.iso
@@ -52,8 +55,12 @@ $(LOADER_OBJ): source/loader.asm | $(BUILD_DIR)
 $(IO_OBJ): source/io.asm | $(BUILD_DIR)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
-# Assemble interrupts.asm
-$(INT_OBJ): source/interrupts.asm | $(BUILD_DIR)
+# Assemble interrupt common handler
+$(INT_ASM_OBJ): source/interrupt_asm.asm | $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
+# Assemble interrupt stubs
+$(INT_STUBS_OBJ): source/interrupt_handlers.asm | $(BUILD_DIR)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
 # Compile framebuffer.c
@@ -64,12 +71,16 @@ $(FB_OBJ): drivers/framebuffer.c | $(BUILD_DIR)
 $(KBD_OBJ): drivers/keyboard.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
-# Compile idt.c
-$(IDT_OBJ): source/idt.c | $(BUILD_DIR)
+# Compile input.c
+$(INPUT_OBJ): drivers/input.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
 # Compile pic.c
 $(PIC_OBJ): source/pic.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $< -o $@
+
+# Compile interrupts.c
+$(INTERRUPTS_OBJ): source/interrupts.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
 # Compile kmain.c

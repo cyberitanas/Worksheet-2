@@ -25,24 +25,27 @@ common_interrupt_handler:
     push esi
     push edi
 
-    ; Build stack_state*
-    ; error_code, eip, cs, eflags
-    push dword [esp+44] ; eflags
-    push dword [esp+40] ; cs
-    push dword [esp+36] ; eip
-    push dword [esp+32] ; error_code
+    mov esi, esp            ; remember base pointer to saved regs
+    mov ebx, esp
+    add ebx, 28             ; EBX -> start of pushed interrupt number
+
+    ; Push stack_state (error_code, eip, cs, eflags)
+    push dword [ebx+16]     ; eflags
+    push dword [ebx+12]     ; cs
+    push dword [ebx+8]      ; eip
+    push dword [ebx+4]      ; error code
 
     ; Push interrupt number
-    push dword [esp+48]
+    push dword [ebx]
 
-    ; Build cpu_state*
-    push dword [esp+52] ; edi
-    push dword [esp+52] ; esi
-    push dword [esp+52] ; ebp
-    push dword [esp+52] ; edx
-    push dword [esp+52] ; ecx
-    push dword [esp+52] ; ebx
-    push dword [esp+52] ; eax
+    ; Push cpu_state fields (eax, ebx, ecx, edx, ebp, esi, edi)
+    push dword [esi+24]     ; eax
+    push dword [esi+20]     ; ebx
+    push dword [esi+16]     ; ecx
+    push dword [esi+12]     ; edx
+    push dword [esi+8]      ; ebp
+    push dword [esi+4]      ; esi
+    push dword [esi]        ; edi
 
     call interrupt_handler
 
@@ -55,5 +58,7 @@ common_interrupt_handler:
     pop ecx
     pop ebx
     pop eax
+
+    add esp, 8              ; discard interrupt number + error code
 
     iret
