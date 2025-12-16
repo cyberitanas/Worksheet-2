@@ -148,7 +148,3 @@ clear – clear the screen
 echo <text> – print text
 
 sum – run the C math function test
-
-Unknown commands are handled gracefully with an error message.
-
-Evidence:
