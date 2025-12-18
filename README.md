@@ -133,7 +133,7 @@ This ensures input handling is fully interrupt-driven and decoupled from higher-
 
 Evidence:
 
-![PIC remap and IDT wiring](screenshots/PIC.png)
+
 ![Keyboard IRQ echo test](screenshots/echo+keyboard%20test.png)
 
 Terminal Interface
